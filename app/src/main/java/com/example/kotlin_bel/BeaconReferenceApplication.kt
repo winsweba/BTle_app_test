@@ -78,16 +78,18 @@ class BeaconReferenceApplication: Application() {
         // a UUID like Identifier.parse("2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6")
 
 
-//        region = Region("all-beacons", Identifier.parse("2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6"), null, null)
-        region = Region("all-beacons", null, null, null)
+        region = Region("all-beacons", Identifier.parse("1F237484-CF8D-4A0F-ADF2-F1211BA9FFA1"), null, null)
+//        region = Region("all-beacons", null, null, null)
         beaconManager.startMonitoring(region)
         beaconManager.startRangingBeacons(region)
+
         // These two lines set up a Live Data observer so this Activity can get beacon data from the Application class
         val regionViewModel = BeaconManager.getInstanceForApplication(this).getRegionViewModel(region)
         // observer will be called each time the monitored regionState changes (inside vs. outside region)
         regionViewModel.regionState.observeForever( centralMonitoringObserver)
         // observer will be called each time a new list of beacons is ranged (typically ~1 second in the foreground)
         regionViewModel.rangedBeacons.observeForever( centralRangingObserver)
+
     }
 
     @RequiresApi(Build.VERSION_CODES.O)

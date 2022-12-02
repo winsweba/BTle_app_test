@@ -7,36 +7,47 @@ import android.Manifest
 import android.app.AlertDialog
 import android.bluetooth.le.AdvertiseCallback
 import android.bluetooth.le.AdvertiseSettings
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.widget.ArrayAdapter
-import android.widget.Button
-import android.widget.ListView
-import android.widget.TextView
+import android.widget.*
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Observer
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 import org.altbeacon.beacon.*
 import java.util.*
-import kotlin.collections.ArrayList
+
 
 class MainActivity : AppCompatActivity() {
     lateinit var beaconListView: ListView
     lateinit var beaconCountTextView: TextView
     lateinit var monitoringButton: Button
     lateinit var rangingButton: Button
+    lateinit var mapBtn: Button
     lateinit var beaconReferenceApplication: BeaconReferenceApplication
     var alertDialog: AlertDialog? = null
     var neverAskAgainPermissions = ArrayList<String>()
+
+    val db = Firebase.firestore
+
+
+    private lateinit var auth: FirebaseAuth
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 //        beaconReferenceApplication = application as BeaconReferenceApplication
         beaconReferenceApplication = application as BeaconReferenceApplication
+
+        auth = Firebase.auth
+
 
         // Set up a Live Data observer for beacon data
         val regionViewModel = BeaconManager.getInstanceForApplication(this).getRegionViewModel(beaconReferenceApplication.region)
@@ -46,14 +57,41 @@ class MainActivity : AppCompatActivity() {
         regionViewModel.rangedBeacons.observe(this, rangingObserver)
         rangingButton = findViewById<Button>(R.id.rangingButton)
         monitoringButton = findViewById<Button>(R.id.monitoringButton)
+        mapBtn = findViewById<Button>(R.id.mapBtn)
         beaconListView = findViewById<ListView>(R.id.beaconList)
         beaconCountTextView = findViewById<TextView>(R.id.beaconCount)
         beaconCountTextView.text = "No beacons detected"
         beaconListView.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, arrayOf("--"))
 
         transmitBeacon()
+
+        auth.signInAnonymously()
+            .addOnCompleteListener(this) { task ->
+                if (task.isSuccessful) {
+                    // Sign in success, update UI with the signed-in user's information
+                    Log.d(TAG, "signInAnonymously:success")
+                    val user = auth.currentUser
+  //                    updateUI(user)
+                } else {
+                    // If sign in fails, display a message to the user.
+                    Log.w(TAG, "signInAnonymously:failure", task.exception)
+                    Toast.makeText(baseContext, "Authentication failed.",
+                        Toast.LENGTH_SHORT).show()
+//                    updateUI(null)
+                }
+            }
+
+//        getLocationsOnMap()
     }
 
+    override fun onStart() {
+//        Toast.makeText(this, "onStart MainActivity", Toast.LENGTH_SHORT).show()
+//        Log.d(TAG, "onStart MainActivity")
+        transmitBeacon()
+        super.onStart()
+        val currentUser = auth.currentUser
+//        updateUI(currentUser)
+    }
     override fun onPause() {
         Log.d(TAG, "onPause")
         super.onPause()
@@ -63,6 +101,8 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "onResume")
         super.onResume()
         checkPermissions()
+
+
     }
 
     val monitoringObserver = Observer<Int> { state ->
@@ -99,6 +139,7 @@ class MainActivity : AppCompatActivity() {
                     .sortedBy { it.distance }
                     .map { "${it.id1}\nid2: ${it.id2} id3:${it.id3} \n rssi: ${it.rssi}\nest. distance: ${it.distance} m" }.toTypedArray())
         }
+
     }
 
     fun rangingButtonTapped(view: View) {
@@ -142,6 +183,11 @@ class MainActivity : AppCompatActivity() {
         alertDialog = builder.create()
         alertDialog?.show()
 
+    }
+
+    fun onOpenMap(view: View){
+        intent = Intent(this,MapsActivity::class.java)
+        startActivity(intent)
     }
 
     @RequiresApi(Build.VERSION_CODES.M)
@@ -310,16 +356,18 @@ class MainActivity : AppCompatActivity() {
 
         mBeaconTransmitter = BeaconTransmitter(
             this,
+//            BeaconParser().setBeaconLayout("s:0-1=feaa,m:2-2=00,p:3-3:-41,i:4-13,i:14-19")
             BeaconParser().setBeaconLayout("m:2-3=beac,i:4-19,i:20-21,i:22-23,p:24-24,d:25-25")
         )
         // Transmit a beacon with Identifiers 2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6 1 2
         // Transmit a beacon with Identifiers 2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6 1 2
+            //.setId1("2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6")
         val beacon = Beacon.Builder()
-            .setId1("2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6")
+            .setId1("1F237484-CF8D-4A0F-ADF2-F1211BA9FFA1")
             .setId2("1")
             .setId3("2")
             .setManufacturer(0x0000) // Choose a number of 0x00ff or less as some devices cannot detect beacons with a manufacturer code > 0x00ff
-            .setTxPower(-59)
+            .setTxPower(-89)
             .setDataFields(Arrays.asList(*arrayOf(0L)))
             .build()
 //        AdvertiseCallback
@@ -334,7 +382,11 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
+
+
     }
+
+
 
     companion object {
         val TAG = "MainActivity"

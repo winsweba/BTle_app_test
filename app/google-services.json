@@ -1,0 +1,106 @@
+{
+  "project_info": {
+    "project_number": "614018081961",
+    "firebase_url": "https://flutterbarberbooking-985c8-default-rtdb.firebaseio.com",
+    "project_id": "flutterbarberbooking-985c8",
+    "storage_bucket": "flutterbarberbooking-985c8.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:614018081961:android:8c0133911a2ba31bf035b8",
+        "android_client_info": {
+          "package_name": "com.example.barber_booking"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "614018081961-knegtlquddic29s7prsdraucthhe6i4r.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.barber_booking",
+            "certificate_hash": "25321bf5c8a6311bf0be774b98576468b81a90bb"
+          }
+        },
+        {
+          "client_id": "614018081961-06vf5mu7gueljet2jpbq13673qevalid.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDOoSK_2-le8cJz-aol_8BgYVIoXFyKIF0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "614018081961-06vf5mu7gueljet2jpbq13673qevalid.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:614018081961:android:8ad11923b263b62df035b8",
+        "android_client_info": {
+          "package_name": "com.example.kotlin_bel"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "614018081961-06vf5mu7gueljet2jpbq13673qevalid.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDOoSK_2-le8cJz-aol_8BgYVIoXFyKIF0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "614018081961-06vf5mu7gueljet2jpbq13673qevalid.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:614018081961:android:4cd462152e8d51d3f035b8",
+        "android_client_info": {
+          "package_name": "com.example.mapping"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "614018081961-06vf5mu7gueljet2jpbq13673qevalid.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDOoSK_2-le8cJz-aol_8BgYVIoXFyKIF0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "614018081961-06vf5mu7gueljet2jpbq13673qevalid.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
