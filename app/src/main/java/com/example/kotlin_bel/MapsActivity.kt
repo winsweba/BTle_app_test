@@ -2,33 +2,47 @@ package com.example.kotlin_bel
 
 import android.Manifest
 import android.content.pm.PackageManager
-import androidx.appcompat.app.AppCompatActivity
+import android.graphics.Color
+import android.location.Geocoder
+import android.location.Location
 import android.os.Bundle
+import android.os.Looper
 import android.util.Log
-import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Observer
-
+import com.example.kotlin_bel.databinding.ActivityMapsBinding
+import com.google.android.gms.location.*
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.MarkerOptions
-import com.example.kotlin_bel.databinding.ActivityMapsBinding
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
+import com.google.android.gms.maps.model.*
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.database.*
+import com.google.firebase.database.ktx.database
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import org.altbeacon.beacon.Beacon
 import org.altbeacon.beacon.BeaconManager
-import org.altbeacon.beacon.BeaconParser
 import org.altbeacon.beacon.Region
 
+
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
+
+
+    lateinit var geocoder: Geocoder
+    // globally declare LocationRequest
+    private lateinit var locationRequest: LocationRequest
+//    lateinit var locationCallback: LocationCallback
+
+    private var userLocationMarker: Marker? = null
+    private var userLocationAccuracyCircle : Circle? = null
+
+
 
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapsBinding
@@ -38,9 +52,21 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     lateinit var beaconReferenceApplication: BeaconReferenceApplication
 
     private lateinit var auth: FirebaseAuth
+
     val db = Firebase.firestore
 
+    private lateinit var database: DatabaseReference
+
+
+
+    private var databasew: FirebaseDatabase = FirebaseDatabase.getInstance()
+
+//
+    private var dbReference: DatabaseReference = databasew.getReference("usersLcation")
+
     private lateinit var fusedLocClient: FusedLocationProviderClient
+
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +78,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         regionViewModel.rangedBeacons.observe(this, rangingObserver)
 
         auth = Firebase.auth
+        Log.e("TGSSS", "====: " + auth)
 
         binding = ActivityMapsBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -63,6 +90,11 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
+
+
+        geocoder = Geocoder(this);
+
+//
 
 
         auth.signInAnonymously()
@@ -82,7 +114,26 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
 
+
+        locationRequest = LocationRequest.create().apply {
+            interval = 500
+            fastestInterval = 500
+            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+//            maxWaitTime = 8000
+        }
+//        dbReference = Firebase.database.reference
+
+        database = Firebase.database.reference
+
+        dbReference.addValueEventListener(locListener)
+
+        
+
+        getLocationsOnMap()
+
     }
+
+
 
     override fun onStart() {
         super.onStart()
@@ -91,6 +142,23 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             println(">>>>>>>>>>>>>>>${currentUser.uid}")
         }
 //        updateUI(currentUser)
+
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            startLocationUpdates()
+        } else {
+            // you need to request permissions...
+        }
+
+//        getLocationsOnMap()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        stopLocationUpdates()
     }
 
     /**
@@ -109,7 +177,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 //        val sydney = LatLng(-34.0, 151.0)
 //        mMap.addMarker(MarkerOptions().position(sydney).title("Marker in Sydney"))
 //        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney))
-        getCurrentLocation()
+//        getCurrentLocation()
     }
 
 
@@ -119,100 +187,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             Log.d(MainActivity.TAG, "Ranged>>>>>>>: ${beacons.count()} beacons")
             if (BeaconManager.getInstanceForApplication(this).rangedRegions.size > 0) {
 
-//            beaconCountTextView.text = "Ranging enabled: ${beacons.count()} beacon(s) detected"
-//            beaconListView.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1,
 
-//               val rssiV = beacons
-//                    .map { "${it.rssi}" }.toList()
-
-//            println("<<<<>>>>>>>>> ${rssiV[0]}")
-
-//            val rssiV = beacons
-//            val aa = beacons
-//                .sortedBy { it.distance }
-//                .map { "${it.id1}\nid2: ${it.id2} id3:${it.id3} \n rssi: ${it.rssi}\nest. distance: ${it.distance} m" }.toTypedArray()
-//
-//            if (ActivityCompat.checkSelfPermission(this,
-//                    Manifest.permission.ACCESS_FINE_LOCATION) !=
-//                PackageManager.PERMISSION_GRANTED) {
-//
-//                // call requestLocPermissions() if permission isn't granted
-//                requestLocPermissions()
-//            } else {
-//                fusedLocClient.lastLocation.addOnSuccessListener { location ->
-//                    val latLng = LatLng(location.latitude, location.longitude)
-//                    if (location != null && beacons.isNotEmpty()){
-//
-//                         //create a marker at the exact location
-////                        mMap.addMarker(MarkerOptions().position(latLng)
-////                            .title("You are currently here!"))
-////                        // create an object that will specify how the camera will be updated
-////                        val update = CameraUpdateFactory.newLatLngZoom(latLng, 16.0f)
-////
-////                        mMap.moveCamera(update)
-//                    val locationLatLong = hashMapOf(
-//                        "latitude" to location.latitude,
-//                        "longitude" to location.longitude,
-////                        "rssi" to  rssiV
-//                    )
-//
-//                        if (auth.currentUser != null) {
-//                            db.collection("usersLocation").document(auth.currentUser!!.uid)
-//                                .set(locationLatLong)
-//                                .addOnSuccessListener { documentReference ->
-//                                    Log.d("TAG", "DocumentSnapshot added with ID: ${documentReference}")
-//                                }
-//                                .addOnFailureListener { e ->
-//                                    Log.w("TAG", "Error adding document", e)
-//                                }
-//                        }
-//                    }
-////                println(">>>>>> ${location.latitude}")
-////                println(">>>>>> ${location.longitude}")
-//                }
-//            }
-
-                fun getLocationsOnMap(){
-
-        db.collection("usersLocation")
-//                    db.collection("users")
-                        .addSnapshotListener { snapshots, e ->
-                            if (e != null) {
-                                Log.w(MainActivity.TAG, "listen:error", e)
-                                return@addSnapshotListener
-                            }
-
-                            if (snapshots != null) {
-
-//
-
-                                for (dc in snapshots) {
-
-                                    Log.e(MainActivity.TAG, "########################<<<<<=> ${dc.data.getValue("latitude")}")
-                                    val lat = dc.data.getValue("latitude")
-                                    val lng = dc.data.getValue("longitude")
-
-                                    val latLng = LatLng(lat as Double, lng as Double)
-
-//                        location.latitude, location.longitude
-                                    mMap.addMarker(MarkerOptions().position(latLng)
-                                        .title("You are currently here!"))
-                                    // create an object that will specify how the camera will be updated
-                                    val update = CameraUpdateFactory.newLatLngZoom(latLng, 16.0f)
-
-                                    mMap.moveCamera(update)
-//
-                                }
-//
-                            }
-                        }
-                }
-                if(beacons.isNotEmpty()){
-                    getLocationsOnMap()
-                    Log.e(MainActivity.TAG, "########################<<<<<<<=====<=>>>>>")
-                }
-
-//
             }
 
         }
@@ -220,149 +195,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
 
 
-    fun getCurrentLocation() {
-
-                if (ActivityCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_FINE_LOCATION) !=
-            PackageManager.PERMISSION_GRANTED) {
-
-            // call requestLocPermissions() if permission isn't granted
-            requestLocPermissions()
-        } else {
-            fusedLocClient.lastLocation.addOnSuccessListener { location ->
-                val latLng = LatLng(location.latitude, location.longitude)
-                if (location != null){
-
-                    // create a marker at the exact location
-                    mMap.addMarker(MarkerOptions().position(latLng)
-                        .title("You are currently here!"))
-                    // create an object that will specify how the camera will be updated
-                    val update = CameraUpdateFactory.newLatLngZoom(latLng, 16.0f)
-
-                    mMap.moveCamera(update)
-
-
-
-                    if (auth.currentUser != null) {
-                        db.collection("usersLocation").document(auth.currentUser!!.uid)
-                            .set(latLng)
-                            .addOnSuccessListener { documentReference ->
-                                Log.d("TAG", "DocumentSnapshot added with ID: ${documentReference}")
-                            }
-                            .addOnFailureListener { e ->
-                                Log.w("TAG", "Error adding document", e)
-                            }
-                    }
-
-
-                }
-//                println(">>>>>> ${location.latitude}")
-//                println(">>>>>> ${location.longitude}")
-            }
-        }
-
-        /*
-
-        if (ActivityCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_FINE_LOCATION) !=
-            PackageManager.PERMISSION_GRANTED) {
-
-            // call requestLocPermissions() if permission isn't granted
-            requestLocPermissions()
-        } else {
-
-            fusedLocClient.lastLocation.addOnCompleteListener {
-                // lastLocation is a task running in the background
-                val location = it.result //obtain location
-                if (location != null) {
-
-                    val latLng = LatLng(location.latitude, location.longitude)
-                    // create a marker at the exact location
-                    mMap.addMarker(MarkerOptions().position(latLng)
-                        .title("You are currently here!"))
-                    // create an object that will specify how the camera will be updated
-                    val update = CameraUpdateFactory.newLatLngZoom(latLng, 16.0f)
-
-                    mMap.moveCamera(update)
-                } else {
-                    // if location is null , log an error message
-                    Log.e(TAG, "No location found")
-                }
-
-
-
-            }
-        }
-
-        */
-    }
-
-
-
-//    fun getLocationsOnMap(){
-//
-////        db.collection("usersLocation")
-////            .get()
-////            .addOnSuccessListener { result ->
-////                for (document in result) {
-////                    Log.e("MapsActivity.TAG", "########################${document} => ${document.data.getValue("latitude")}")
-////                }
-////            }
-////            .addOnFailureListener { exception ->
-////                Log.d("MapsActivity.TAG", "Error getting documents: ^^^^^^^^^^^^^^^^^^^^^^^^", exception)
-////            }
-////
-//
-////        db.collection("users")
-////            .addSnapshotListener { value, e ->
-////                if (e != null) {
-////                    Log.w(TAG, "Listen failed.", e)
-////                    return@addSnapshotListener
-////                }
-////
-//////                val cities = ArrayList<String>()
-////                for (doc in value!!) {
-//////                    doc.getString("name")?.let {
-//////                        cities.add(it)
-//////                    }
-////                    Log.e(TAG, "Listen failed.$doc" )
-////                }
-//////                Log.d(TAG, "Current cites in CA: $cities")
-////            }
-//
-////        db.collection("usersLocation")
-//        db.collection("users")
-//            .addSnapshotListener { snapshots, e ->
-//                if (e != null) {
-//                    Log.w(MainActivity.TAG, "listen:error", e)
-//                    return@addSnapshotListener
-//                }
-//
-//                if (snapshots != null) {
-//
-////
-//
-//                    for (dc in snapshots) {
-//
-//                        Log.e(MainActivity.TAG, "########################<<<<<=> ${dc.data.getValue("latitude")}")
-//                        val lat = dc.data.getValue("latitude")
-//                        val lng = dc.data.getValue("longitude")
-//
-//                        val latLng = LatLng(lat as Double, lng as Double)
-//
-////                        location.latitude, location.longitude
-//                        mMap.addMarker(MarkerOptions().position(latLng)
-//                            .title("You are currently here!"))
-//                        // create an object that will specify how the camera will be updated
-//                        val update = CameraUpdateFactory.newLatLngZoom(latLng, 16.0f)
-//
-//                        mMap.moveCamera(update)
-////
-//                    }
-////
-//                }
-//            }
-//    }
 
 
 
@@ -378,6 +210,167 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             REQUEST_LOCATION)
     }
 
+
+    var locationCallback: LocationCallback = object : LocationCallback() {
+        override fun onLocationResult(locationResult: LocationResult) {
+            super.onLocationResult(locationResult)
+
+
+            if (auth.currentUser != null) {
+
+                database.child("usersLcation").child(auth.currentUser!!.uid).setValue(locationResult.lastLocation)
+//
+            }
+
+            if (mMap != null) {
+                setUserLocationMarker(locationResult.lastLocation)
+
+
+
+            }
+        }
+    }
+
+    private fun stopLocationUpdates() {
+        fusedLocClient.removeLocationUpdates(locationCallback)
+    }
+
+
+    private fun startLocationUpdates() {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), //permission in the manifest
+                REQUEST_LOCATION)
+            ActivityCompat.requestPermissions(this,
+                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION), //permission in the manifest
+                REQUEST_LOCATION)
+        }
+        else{
+            fusedLocClient.requestLocationUpdates(
+                locationRequest,
+                locationCallback,
+                Looper.getMainLooper()
+            )
+        }
+
+    }
+
+
+    fun setUserLocationMarker(location: Location){
+        val latLng = LatLng(location.latitude, location.longitude)
+
+/*
+//       var userLocationMarker: Marker
+
+        if(userLocationMarker ==  null){
+            //Create a new marker
+            val markerOptions = MarkerOptions()
+            markerOptions.position(latLng)
+            markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.bicycle))
+            markerOptions.rotation(location.bearing)
+            markerOptions.anchor(0.5.toFloat(), 0.5.toFloat())
+            userLocationMarker = mMap.addMarker(markerOptions)
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17F))
+
+
+//            if (auth.currentUser != null) {
+//                Log.e(TAG, "VVVVVVVVVV: " + latLng)
+//                db.collection("usersLocation").document(auth.currentUser!!.uid)
+//                    .set(latLng)
+//                    .addOnSuccessListener { documentReference ->
+//                        Log.d("TAG", "DocumentSnapshot added with ID: ${documentReference}")
+//                    }
+//                    .addOnFailureListener { e ->
+//                        Log.w("TAG", "Error adding document", e)
+//                    }
+//            }
+        }else{
+            userLocationMarker!!.setPosition(latLng);
+            userLocationMarker!!.setRotation(location.getBearing());
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17F));
+        }
+
+        if (userLocationAccuracyCircle == null) {
+            val circleOptions = CircleOptions()
+            circleOptions.center(latLng)
+            circleOptions.strokeWidth(4f)
+            circleOptions.strokeColor(Color.argb(255, 255, 0, 0))
+            circleOptions.fillColor(Color.argb(32, 255, 0, 0))
+            circleOptions.radius(location.accuracy.toDouble())
+            userLocationAccuracyCircle = mMap.addCircle(circleOptions)
+        } else {
+            userLocationAccuracyCircle!!.center = latLng
+            userLocationAccuracyCircle!!.radius = location.accuracy.toDouble()
+        }
+*/
+
+    }
+
+    fun getLocationsOnMap(){
+
+
+    }
+
+    val locListener = object : ValueEventListener {
+        override fun onDataChange(snapshot: DataSnapshot) {
+
+
+            for(sn in snapshot.children ){
+
+                val location = sn.getValue(LocationInfo::class.java)
+                val locationLat = location?.latitude
+                val locationLong = location?.longitude
+
+                Log.e(TAG, "**********onLocationResult====: " +location)
+
+                if (locationLat != null && locationLong!= null) {
+                    // create a LatLng object from location
+                    val latLng = LatLng(locationLat, locationLong)
+                    //create a marker at the read location and display it on the map
+
+                        //Create a new marker
+                        val markerOptions = MarkerOptions()
+                        markerOptions.position(latLng)
+                        markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.bicycle))
+                        markerOptions.anchor(0.5.toFloat(), 0.5.toFloat())
+                        userLocationMarker = mMap.addMarker(markerOptions)
+                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17F))
+
+
+                }
+                else {
+                    // if location is null , log an error message
+                    Log.e(TAG, "user location cannot be found")
+                }
+
+
+//                val markerOptions = MarkerOptions()
+//                markerOptions.position(latLng)
+//                markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.bicycle))
+////                                    markerOptions.rotation(location.bearing)
+//                markerOptions.anchor(0.5.toFloat(), 0.5.toFloat())
+//                userLocationMarker = mMap.addMarker(markerOptions)
+//                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17F))
+            }
+        }
+
+        override fun onCancelled(error: DatabaseError) {
+            TODO("Not yet implemented")
+        }
+    }
+
+
+
+
+
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<String>,
@@ -388,7 +381,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             //check if grantResults contains PERMISSION_GRANTED.If it does, call getCurrentLocation()
             if (grantResults.size == 1 && grantResults[0] ==
                 PackageManager.PERMISSION_GRANTED) {
-                getCurrentLocation()
+//                getCurrentLocation()
             } else {
                 //if it doesn`t log an error message
                 Log.e(TAG, "Location permission has been denied")
