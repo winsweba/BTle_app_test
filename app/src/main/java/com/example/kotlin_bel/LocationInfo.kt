@@ -6,4 +6,9 @@ import com.google.firebase.database.IgnoreExtraProperties
 data class LocationInfo(
     var latitude: Double? = 0.0,
     var longitude: Double? = 0.0
+//    var glss: String? = ""
 )
+//data class LocationInfo(
+//    var latitude: Double = 0.0,
+//    var longitude: Double = 0.0
+//)

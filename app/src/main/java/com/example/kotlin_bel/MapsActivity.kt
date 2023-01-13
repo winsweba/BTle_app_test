@@ -2,7 +2,6 @@ package com.example.kotlin_bel
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.location.Geocoder
 import android.location.Location
 import android.os.Bundle
@@ -14,6 +13,8 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Observer
 import com.example.kotlin_bel.databinding.ActivityMapsBinding
+import com.firebase.geofire.GeoFire
+import com.firebase.geofire.GeoLocation
 import com.google.android.gms.location.*
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -24,12 +25,14 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.*
 import com.google.firebase.database.ktx.database
+import com.google.firebase.database.ktx.getValue
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import org.altbeacon.beacon.Beacon
 import org.altbeacon.beacon.BeaconManager
 import org.altbeacon.beacon.Region
 
+//import com.google.firebase.Goe
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -125,9 +128,9 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
         database = Firebase.database.reference
 
-        dbReference.addValueEventListener(locListener)
+//        dbReference.addValueEventListener(locListener)
 
-        
+
 
         getLocationsOnMap()
 
@@ -178,6 +181,27 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 //        mMap.addMarker(MarkerOptions().position(sydney).title("Marker in Sydney"))
 //        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney))
 //        getCurrentLocation()
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), //permission in the manifest
+                REQUEST_LOCATION)
+            ActivityCompat.requestPermissions(this,
+                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION), //permission in the manifest
+                REQUEST_LOCATION)
+        }
+        else{
+            mMap.isMyLocationEnabled = true
+        }
+//        getAllLocations()
+        dbReference.addValueEventListener(locListener)
+//        mMap.isMyLocationEnabled = true
     }
 
 
@@ -214,11 +238,17 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     var locationCallback: LocationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
             super.onLocationResult(locationResult)
-
+//            Log.e(TAG, "**********onLocationResult====: " +locationResult.lastLocation.latitude)
 
             if (auth.currentUser != null) {
 
-                database.child("usersLcation").child(auth.currentUser!!.uid).setValue(locationResult.lastLocation)
+//                database.child("usersLcation").child(auth.currentUser!!.uid).setValue(locationResult.lastLocation)
+               var userLocationPhat =  database.child("usersLcation")
+                var geoUserLocationPhat = GeoFire(userLocationPhat)
+                var userUid = auth.currentUser!!.uid
+                var locationResults = locationResult.lastLocation
+
+                geoUserLocationPhat.setLocation(userUid, GeoLocation(locationResults.latitude, locationResults.longitude))
 //
             }
 
@@ -266,7 +296,11 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     fun setUserLocationMarker(location: Location){
         val latLng = LatLng(location.latitude, location.longitude)
 
-/*
+//        mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng))
+//        mMap.animateCamera(CameraUpdateFactory.zoomTo(17F))
+
+        /*
+
 //       var userLocationMarker: Marker
 
         if(userLocationMarker ==  null){
@@ -309,7 +343,9 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             userLocationAccuracyCircle!!.center = latLng
             userLocationAccuracyCircle!!.radius = location.accuracy.toDouble()
         }
-*/
+
+        */
+
 
     }
 
@@ -322,17 +358,23 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         override fun onDataChange(snapshot: DataSnapshot) {
 
 
+
             for(sn in snapshot.children ){
 
-                val location = sn.getValue(LocationInfo::class.java)
-                val locationLat = location?.latitude
-                val locationLong = location?.longitude
+                var locationUpdateLat = sn.child('l'.toString()).child('0'.toString()).getValue()
+                var locationUpdateLog = sn.child('l'.toString()).child('1'.toString()).getValue()
+//                Log.e(MainActivity.TAG, "########################<<<<<=> ${locationUpdate}")
 
-                Log.e(TAG, "**********onLocationResult====: " +location)
+//                val location = sn.getValue(LocationInfo::class.java)
+//                val locationLat = location?.latitude
+//                val locationLong = location?.longitude
 
-                if (locationLat != null && locationLong!= null) {
+//                Log.e(TAG, "**********onLocationResult====: " +location)
+
+                if (locationUpdateLat != null && locationUpdateLog!= null) {
                     // create a LatLng object from location
-                    val latLng = LatLng(locationLat, locationLong)
+                    val latLng = LatLng(locationUpdateLat as Double, locationUpdateLog as Double)
+//                    Log.e(TAG, "**********onLocationResult====: " +latLng)
                     //create a marker at the read location and display it on the map
 
                         //Create a new marker
@@ -348,17 +390,67 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 else {
                     // if location is null , log an error message
                     Log.e(TAG, "user location cannot be found")
-                }
+             }
 
 
+////
+////
+////                 val markerOptions = MarkerOptions()
+////                 markerOptions.position(latLng)
+////                 markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.bicycle))
+//// //                                    markerOptions.rotation(location.bearing)
+////                 markerOptions.anchor(0.5.toFloat(), 0.5.toFloat())
+////                 userLocationMarker = mMap.addMarker(markerOptions)
+////                 mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17F))
+            }
+
+
+//            val post = dataSnapshot.getValue<Post>()
+
+//            var locationUpdate = snapshot.getValue<Location>()
+//            Log.e(MainActivity.TAG, "########################<<<<<=> ${locationUpdate}")
+
+//            for (dc in snapshot.children ) {
+//
+//                        Log.e(MainActivity.TAG, "########################<<<<<=> ${dc.}")
+////                        val lat = dc.getValue("sa","dsd")
+////                        val lng = dc.getValue()
+//
+////                        val latLng = LatLng(lat as Double, lng as Double)
+////
+//////                        location.latitude, location.longitude
+////                        mMap.addMarker(MarkerOptions().position(latLng)
+////                            .title("You are currently here!"))
+////                        // create an object that will specify how the camera will be updated
+////                        val update = CameraUpdateFactory.newLatLngZoom(latLng, 16.0f)
+////
+////                        mMap.moveCamera(update)
+//////
+//                    }
+
+//            if(snapshot.exists()){
+////                val values = value as List<Any>
+//                val map = snapshot.value as(List<Any>)
+//                var locationLat = 0.0
+//                var locationLang = 0.0
+//
+//                if (map[0] != null){
+//                    locationLat = map[0].toString().toDouble()
+//                }
+//                if (map[1] != null){
+//                    locationLang = map[1].toString().toDouble()
+//                }
+//
+////                    val latLng = LatLng(locationLat, locationLong)
+//                val latLng = LatLng(locationLat, locationLang)
 //                val markerOptions = MarkerOptions()
 //                markerOptions.position(latLng)
 //                markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.bicycle))
-////                                    markerOptions.rotation(location.bearing)
 //                markerOptions.anchor(0.5.toFloat(), 0.5.toFloat())
 //                userLocationMarker = mMap.addMarker(markerOptions)
 //                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17F))
-            }
+//            }
+
         }
 
         override fun onCancelled(error: DatabaseError) {
@@ -370,6 +462,30 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
 
 
+    fun getAllLocations(){
+        database.child("usersLcation").get().addOnSuccessListener{v->
+                        Log.e(TAG, "**********onLocationResult^^^^^^^====: " + v.child(auth.currentUser!!.uid).child("l").child("0").value)
+                        Log.e(TAG, "**********onLocationResult^^^^^^^====: " + v.child(auth.currentUser!!.uid).child("l").child("1").value)
+
+            var lat = v.child(auth.currentUser!!.uid).child("l").child("0").value
+            var log = v.child(auth.currentUser!!.uid).child("l").child("1").value
+
+            val latLng = LatLng(lat as Double, log as Double)
+//                    Log.e(TAG, "**********onLocationResult====: " +latLng)
+                    //create a marker at the read location and display it on the map
+
+                        //Create a new marker
+                        val markerOptions = MarkerOptions()
+                        markerOptions.position(latLng)
+                        markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.bicycle))
+                        markerOptions.anchor(0.5.toFloat(), 0.5.toFloat())
+                        userLocationMarker = mMap.addMarker(markerOptions)
+                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17F))
+//            child(auth.currentUser!!.uid)
+        }.addOnFailureListener {
+
+        }
+    }
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
